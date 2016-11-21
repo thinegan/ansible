@@ -1,0 +1,15 @@
+localhost ansible_connection=local
+[web:children]
+tag_type_web
+
+[tag_type_web]
+
+[all:vars]
+ntp_server=ntp.ubuntu.com
+ansible_ssh_user=root
+
+[web]
+devel.timeclone.com
+
+[local]
+127.0.0.1
