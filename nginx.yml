@@ -1,0 +1,115 @@
+---
+- name: Configure webserver with nginx
+  hosts: web
+  become: True
+  vars:
+   - docroot: /home/www/public_html/devel.timeclone.com
+   - path_nginx_site_available: /etc/nginx/sites-available
+   - path_nginx_site_enabled: /etc/nginx/sites-enabled
+   - path_nginx_config: /etc/nginx
+   - path_ssl_certs: /etc/ssl/certs
+   - path_ssl_private: /etc/ssl/private
+
+  tasks:
+   - name: Add Nginx Key
+     when: ansible_os_family == 'Debian'
+     apt_key: url=http://nginx.org/keys/nginx_signing.key state=present
+     register: ppastable
+
+   - name: Add Nginx Repository_1
+     when: ppastable|success
+     apt_repository: repo='deb http://nginx.org/packages/debian/ jessie nginx' state='present' filename='nginx' update_cache='yes'
+     register: nginxrepo1
+
+   - name: Add Nginx Repository_2
+     when: nginxrepo1|success
+     apt_repository: repo='deb-src http://nginx.org/packages/debian/ jessie nginx' state='present' filename='nginx' update_cache='yes'
+     register: nginxrepo2
+
+   - name: Install Nginx
+     apt: pkg=nginx state=installed update_cache=true
+     when: nginxrepo2|success
+     register: nginxinstalled
+     notify:
+      - Start Nginx
+
+   - name: Copy SSL Cert
+     when: nginxinstalled|success
+     copy: src=files/timeclone.com.crt  dest='{{path_ssl_certs}}'
+     register: cp_ssl_cert
+
+   - name: Copy SSL Key
+     when: cp_ssl_cert|success
+     copy: src=files/timeclone.com.key  dest='{{path_ssl_private}}'
+     register: cp_ssl_key
+
+   - name: Copy SSL Stapling
+     when: cp_ssl_key|success
+     copy: src=files/stapling.trusted.crt  dest='{{path_ssl_certs}}'
+     register: cp_ssl_stapling
+
+
+   - name: Install Nginx Site Available
+     when: cp_ssl_stapling|success
+     file: dest='{{path_nginx_site_available}}' mode=755 state=directory
+     register: nginx_config1
+
+   - name: Install Nginx Site Enabled
+     when: nginx_config1|success
+     file: dest='{{path_nginx_site_enabled}}' mode=755 state=directory
+     register: nginx_config2
+
+   - name: Copy Nginx Config
+     when: nginx_config2|success
+     copy: src=files/nginx.conf  dest='{{path_nginx_config}}'
+     register: cp_nginx_config
+
+   - name: Copy Nginx Proxy Config
+     when: cp_nginx_config|success
+     copy: src=files/proxy.conf  dest='{{path_nginx_config}}'
+     register: cp_nginx_proxy_config
+
+   - name: Copy Nginx devel.timeclone.com
+     when: cp_nginx_proxy_config|success
+     copy: src=files/devel.timeclone.com  dest='{{path_nginx_site_available}}'
+     register: cp_nginx_config2
+
+   - name: Enable Nginx devel.timeclone.com
+     when: cp_nginx_config2|success
+     file: >
+        src=/etc/nginx/sites-available/devel.timeclone.com
+        dest=/etc/nginx/sites-enabled/devel.timeclone.com
+        state=link
+     register: en_nginx_config
+
+   - name: Create Web Root Directory
+     when: en_nginx_config|success
+     file: dest='{{docroot}}' mode=775 state=directory owner=www-data group=www-data
+     register: web_root_dir
+
+   - name: Copy Index.html to Web Root Directory
+     when: web_root_dir|success
+     template: src=templates/index.html.j2 dest='{{docroot}}/index.html' mode=0664 owner=www-data group=www-data
+     notify: Restart Nginx
+
+#   - name: Restart Nginx
+#     service: name=nginx state=restarted
+
+
+
+ #  - name: Create Web Root
+ #    when: nginxinstalled|success
+ #    file: dest={{ '{{' }} docroot {{ '}}' }} mode=775 state=directory owner=www-data group=www-data
+ #    notify:
+ #     - Reload Nginx
+
+  handlers:
+   - name: Start Nginx
+     service: name=nginx state=started
+
+   - name: Reload Nginx
+     service: name=nginx state=reloaded
+
+   - name: Restart Nginx
+     service: name=nginx state=restarted
+
