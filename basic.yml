@@ -1,0 +1,46 @@
+---
+- name: Setup Basic Server
+  hosts: web
+  become: True
+
+  tasks:
+   - name: Install list of packages
+     apt: name={{item}} state=installed
+     with_items:
+        - htop
+        - openssl
+        - rsync
+        - telnet
+        - postfix
+        - mlocate
+        - tcpdump
+        - zip
+        - mailutils
+        - build-essential
+        - iftop
+        - bzip2
+        - lsof
+        - whois
+        - apt-file
+        - vim
+        - unzip
+        - curl
+        - ssh
+        - perl
+        - locales
+        - tcpflow
+        - multitail
+        - strace
+        - acl
+        - cpulimit
+        - sudo
+        - iptables-persistent
+        - default-jdk
+        - git
+        - screen
+        - ntp
+        - ntpdate
+        - rsyslog-gnutls
+        - finger
+        - dnsutils
+
